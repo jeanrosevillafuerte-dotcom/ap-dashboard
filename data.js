@@ -89,8 +89,8 @@ function mapInvoices(rows) {
     date:        r["Date"]         || "",
     dueDate:     r["DueDate"]      || "",
     description: r["Description"]  || "",
-    amount:      parseFloat(r["Amount"]     || 0),
-    balanceDue:  parseFloat(r["BalanceDue"] || 0),
+    amount:      parseFloat(r["Amount"]     || 0).replace(/,/g,"")),
+    balanceDue:  parseFloat(r["BalanceDue"] || 0).replace(/,/g,""))
   })).filter(r => r.supplierID);
 }
 function mapPayments(rows) {
@@ -101,7 +101,7 @@ function mapPayments(rows) {
     method:     r["Method"]    || "",
     reference:  r["Reference"] || "",
     invoiceNo:  r["InvoiceNo"] || "",
-    amount:     parseFloat(r["Amount"] || 0),
+    amount:     parseFloat(r["Amount"] || 0).replace(/,/g,"")),
     notes:      r["Notes"]     || "",
   })).filter(r => r.supplierID);
 }
@@ -113,7 +113,7 @@ function mapPDC(rows) {
     checkDate:   r["CheckDate"]  || "",
     bank:        r["Bank"]       || "",
     invoiceNo:   r["InvoiceNo"]  || "",
-    amount:      parseFloat(r["Amount"] || 0),
+    amount:      parseFloat(r["Amount"] || 0).replace(/,/g,"")),
     status:      r["Status"]     || "Issued",   // "Issued" or "Cleared"
     clearedDate: r["ClearedDate"] || "",
     notes:       r["Notes"]      || "",
