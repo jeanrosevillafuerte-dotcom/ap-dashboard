@@ -26,7 +26,7 @@ const CONFIG = {
 
   // ── CURRENCY ────────────────────────────────────────────────
   currency: "Php",          // e.g.  RM, $, ¥, €
-  locale:   "en-MY",       // for number formatting
+  locale:   "en-PH",       // for number formatting
 
   // ── DATE FORMAT ─────────────────────────────────────────────
   dateFormat: "DD/MM/YYYY",  // display format (informational)
