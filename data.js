@@ -66,7 +66,7 @@ function parseCSV(text) {
 
 // ── FETCH FROM GOOGLE SHEETS ────────────────────────────────
 async function fetchSheet(sheetName, gid) {
-  const url = `https://docs.google.com/spreadsheets/d/${CONFIG.sheetId}/export?format=csv&gid=${gid}`;
+  const url = `https://docs.google.com/spreadsheets/d/${CONFIG.sheetId}/gviz/tq?tqx=out:csv&gid=${gid}`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`HTTP ${res.status} for sheet ${sheetName}`);
   const text = await res.text();
