@@ -3,65 +3,61 @@
 //  数据层  —  从 Google Sheet 获取数据
 // ============================================================
 
-// ── SAMPLE / FALLBACK DATA ──────────────────────────────────
-// Used when Google Sheets is not yet configured or unreachable
-// 当 Google Sheet 未配置或无法访问时使用示例数据
-
 const SAMPLE_DATA = {
   suppliers: [
-    { id:"S001", name:"ABC Trading Co.",       nameCN:"ABC贸易有限公司",     contact:"0123456789" },
-    { id:"S002", name:"XYZ Supply Sdn Bhd",    nameCN:"XYZ供应有限公司",     contact:"0198765432" },
-    { id:"S003", name:"Golden Star Enterprise", nameCN:"金星企业",            contact:"0111234567" },
-    { id:"S004", name:"Pacific Logistics",      nameCN:"太平洋物流",          contact:"0167654321" },
-    { id:"S005", name:"SteelMart Industries",   nameCN:"钢铁市场工业",        contact:"0134567890" },
+    { id:"S001", name:"ABC Trading Co.",        nameCN:"ABC贸易有限公司",  contact:"0123456789" },
+    { id:"S002", name:"XYZ Supply Sdn Bhd",     nameCN:"XYZ供应有限公司", contact:"0198765432" },
   ],
   invoices: [
-    // supplierID, invoiceNo, date, dueDate, description, amount, balanceDue
-    { supplierID:"S001", invoiceNo:"INV-2024-001", date:"2024-11-01", dueDate:"2024-12-01", description:"Goods Purchase",      amount:15000, balanceDue:15000 },
-    { supplierID:"S001", invoiceNo:"INV-2024-015", date:"2024-12-15", dueDate:"2025-01-15", description:"Monthly Supply",      amount:8500,  balanceDue:3500  },
-    { supplierID:"S001", invoiceNo:"INV-2025-003", date:"2025-01-10", dueDate:"2025-02-10", description:"Special Order",       amount:22000, balanceDue:22000 },
-    { supplierID:"S002", invoiceNo:"INV-2024-020", date:"2024-10-20", dueDate:"2024-11-20", description:"Raw Materials",       amount:45000, balanceDue:45000 },
-    { supplierID:"S002", invoiceNo:"INV-2025-001", date:"2025-01-05", dueDate:"2025-02-05", description:"Hardware Supply",     amount:12000, balanceDue:12000 },
-    { supplierID:"S003", invoiceNo:"INV-2024-018", date:"2024-12-01", dueDate:"2025-01-01", description:"Electrical Parts",    amount:6800,  balanceDue:6800  },
-    { supplierID:"S003", invoiceNo:"INV-2025-002", date:"2025-01-20", dueDate:"2025-02-20", description:"Maintenance Items",   amount:3200,  balanceDue:3200  },
-    { supplierID:"S004", invoiceNo:"INV-2024-022", date:"2024-11-15", dueDate:"2024-12-15", description:"Freight Services",    amount:9500,  balanceDue:9500  },
-    { supplierID:"S004", invoiceNo:"INV-2025-004", date:"2025-01-18", dueDate:"2025-02-18", description:"Delivery Charges",    amount:4200,  balanceDue:4200  },
-    { supplierID:"S005", invoiceNo:"INV-2024-030", date:"2024-09-30", dueDate:"2024-10-30", description:"Steel Beams",         amount:78000, balanceDue:38000 },
-    { supplierID:"S005", invoiceNo:"INV-2024-045", date:"2024-12-20", dueDate:"2025-01-20", description:"Construction Materials", amount:25000, balanceDue:25000 },
+    { supplierID:"S001", invoiceNo:"INV-001", date:"2024-11-01", dueDate:"2024-12-01", description:"Goods Purchase", amount:15000, balanceDue:15000 },
+    { supplierID:"S002", invoiceNo:"INV-002", date:"2024-10-20", dueDate:"2024-11-20", description:"Raw Materials",  amount:45000, balanceDue:45000 },
   ],
   payments: [
-    // supplierID, paymentNo, date, method, reference, invoiceNo, amount, notes
-    { supplierID:"S001", paymentNo:"PAY-001", date:"2025-01-05", method:"Bank Transfer", reference:"TRF2025010501", invoiceNo:"INV-2024-015", amount:5000,  notes:"Partial payment" },
-    { supplierID:"S005", paymentNo:"PAY-002", date:"2024-12-01", method:"Cheque",        reference:"CHQ-003456",     invoiceNo:"INV-2024-030", amount:40000, notes:"Partial settlement" },
+    { supplierID:"S001", paymentNo:"PAY-001", date:"2025-01-05", method:"Bank Transfer", reference:"TRF001", invoiceNo:"INV-001", amount:5000, notes:"Partial" },
   ],
-  pdc: [
-    // supplierID, checkNo, issueDate, checkDate, bank, invoiceNo, amount, status (Issued/Cleared), clearedDate, notes
-    { supplierID:"S001", checkNo:"CHQ-2025-001", issueDate:"2025-01-10", checkDate:"2025-02-10", bank:"Maybank",  invoiceNo:"INV-2025-003", amount:22000, status:"Issued",  clearedDate:"",           notes:"PDC for Jan order" },
-    { supplierID:"S002", checkNo:"CHQ-2025-002", issueDate:"2025-01-15", checkDate:"2025-02-15", bank:"CIMB",    invoiceNo:"INV-2025-001", amount:12000, status:"Issued",  clearedDate:"",           notes:"" },
-    { supplierID:"S004", checkNo:"CHQ-2025-003", issueDate:"2025-01-18", checkDate:"2025-02-18", bank:"RHB",     invoiceNo:"INV-2025-004", amount:4200,  status:"Issued",  clearedDate:"",           notes:"Delivery PDC" },
-    { supplierID:"S005", checkNo:"CHQ-2024-098", issueDate:"2024-11-01", checkDate:"2024-12-01", bank:"Maybank", invoiceNo:"INV-2024-030", amount:20000, status:"Cleared", clearedDate:"2024-12-03", notes:"Already cleared" },
-  ]
+  pdc: []
 };
 
-// ── CSV PARSER ──────────────────────────────────────────────
+// ── ROBUST CSV PARSER ────────────────────────────────────────
+// Handles quoted fields that contain commas (e.g. "1,443,180.58")
 function parseCSV(text) {
-  const lines = text.trim().split("\n");
+  const lines = text.trim().split(/\r?\n/);
   if (lines.length < 2) return [];
-  const headers = lines[0].split(",").map(h => h.trim().replace(/^"|"$/g, ""));
-  return lines.slice(1).map(line => {
-    const vals = [];
-    let inQuote = false, cur = "";
+
+  function parseLine(line) {
+    const fields = [];
+    let cur = "", inQuote = false;
     for (let i = 0; i < line.length; i++) {
       const c = line[i];
-      if (c === '"') { inQuote = !inQuote; }
-      else if (c === "," && !inQuote) { vals.push(cur.trim()); cur = ""; }
-      else { cur += c; }
+      if (c === '"') {
+        if (inQuote && line[i+1] === '"') { cur += '"'; i++; }
+        else inQuote = !inQuote;
+      } else if (c === ',' && !inQuote) {
+        fields.push(cur); cur = "";
+      } else {
+        cur += c;
+      }
     }
-    vals.push(cur.trim());
+    fields.push(cur);
+    return fields;
+  }
+
+  const headers = parseLine(lines[0]).map(h => h.trim());
+  return lines.slice(1).map(line => {
+    const vals = parseLine(line);
     const obj = {};
-    headers.forEach((h, i) => { obj[h] = (vals[i] || "").replace(/^"|"$/g, ""); });
+    headers.forEach((h, i) => { obj[h] = (vals[i] || "").trim(); });
     return obj;
-  });
+  }).filter(row => Object.values(row).some(v => v !== ""));
+}
+
+// ── SAFE NUMBER PARSER ────────────────────────────────────────
+function parseNum(val) {
+  if (!val && val !== 0) return 0;
+  // Remove currency symbols, spaces, commas then parse
+  const cleaned = String(val).replace(/[^0-9.\-]/g, "");
+  const n = parseFloat(cleaned);
+  return isNaN(n) ? 0 : n;
 }
 
 // ── FETCH FROM GOOGLE SHEETS ────────────────────────────────
@@ -73,50 +69,52 @@ async function fetchSheet(sheetName, gid) {
   return parseCSV(text);
 }
 
-// Map CSV rows from Google Sheets to internal format
 function mapSuppliers(rows) {
   return rows.map(r => ({
-    id:      r["SupplierID"]   || r["supplierID"]   || "",
-    name:    r["SupplierName"] || r["supplierName"] || "",
+    id:      r["SupplierID"]     || r["supplierID"]     || "",
+    name:    r["SupplierName"]   || r["supplierName"]   || "",
     nameCN:  r["SupplierNameCN"] || r["supplierNameCN"] || "",
-    contact: r["Contact"]      || "",
+    contact: r["Contact"]        || "",
   })).filter(r => r.id);
 }
+
 function mapInvoices(rows) {
   return rows.map(r => ({
-    supplierID:  r["SupplierID"]   || "",
-    invoiceNo:   r["InvoiceNo"]    || "",
-    date:        r["Date"]         || "",
-    dueDate:     r["DueDate"]      || "",
-    description: r["Description"]  || "",
-    amount:      parseFloat(r["Amount"]     || 0).replace(/,/g,"")),
-    balanceDue:  parseFloat(r["BalanceDue"] || 0).replace(/,/g,""))
+    supplierID:  r["SupplierID"]  || r["supplierID"]  || "",
+    invoiceNo:   r["InvoiceNo"]   || r["invoiceNo"]   || "",
+    date:        r["Date"]        || r["date"]        || "",
+    dueDate:     r["DueDate"]     || r["dueDate"]     || "",
+    description: r["Description"] || r["description"] || "",
+    amount:      parseNum(r["Amount"]     || r["amount"]),
+    balanceDue:  parseNum(r["BalanceDue"] || r["balanceDue"]),
   })).filter(r => r.supplierID);
 }
+
 function mapPayments(rows) {
   return rows.map(r => ({
-    supplierID: r["SupplierID"] || "",
-    paymentNo:  r["PaymentNo"] || "",
-    date:       r["Date"]      || "",
-    method:     r["Method"]    || "",
-    reference:  r["Reference"] || "",
-    invoiceNo:  r["InvoiceNo"] || "",
-    amount:     parseFloat(r["Amount"] || 0).replace(/,/g,"")),
-    notes:      r["Notes"]     || "",
+    supplierID: r["SupplierID"] || r["supplierID"] || "",
+    paymentNo:  r["PaymentNo"] || r["paymentNo"]  || "",
+    date:       r["Date"]      || r["date"]       || "",
+    method:     r["Method"]    || r["method"]     || "",
+    reference:  r["Reference"] || r["reference"]  || "",
+    invoiceNo:  r["InvoiceNo"] || r["invoiceNo"]  || "",
+    amount:     parseNum(r["Amount"] || r["amount"]),
+    notes:      r["Notes"]     || r["notes"]      || "",
   })).filter(r => r.supplierID);
 }
+
 function mapPDC(rows) {
   return rows.map(r => ({
-    supplierID:  r["SupplierID"] || "",
-    checkNo:     r["CheckNo"]    || "",
-    issueDate:   r["IssueDate"]  || "",
-    checkDate:   r["CheckDate"]  || "",
-    bank:        r["Bank"]       || "",
-    invoiceNo:   r["InvoiceNo"]  || "",
-    amount:      parseFloat(r["Amount"] || 0).replace(/,/g,"")),
-    status:      r["Status"]     || "Issued",   // "Issued" or "Cleared"
-    clearedDate: r["ClearedDate"] || "",
-    notes:       r["Notes"]      || "",
+    supplierID:  r["SupplierID"]  || r["supplierID"]  || "",
+    checkNo:     r["CheckNo"]     || r["checkNo"]     || "",
+    issueDate:   r["IssueDate"]   || r["issueDate"]   || "",
+    checkDate:   r["CheckDate"]   || r["checkDate"]   || "",
+    bank:        r["Bank"]        || r["bank"]        || "",
+    invoiceNo:   r["InvoiceNo"]   || r["invoiceNo"]   || "",
+    amount:      parseNum(r["Amount"] || r["amount"]),
+    status:      r["Status"]      || r["status"]      || "Issued",
+    clearedDate: r["ClearedDate"] || r["clearedDate"] || "",
+    notes:       r["Notes"]       || r["notes"]       || "",
   })).filter(r => r.supplierID);
 }
 
@@ -135,12 +133,20 @@ async function loadData() {
       fetchSheet("payments",  CONFIG.sheets.payments),
       fetchSheet("pdc",       CONFIG.sheets.pdc),
     ]);
-    return {
+
+    const result = {
       suppliers: mapSuppliers(suppRaw),
       invoices:  mapInvoices(invRaw),
       payments:  mapPayments(payRaw),
       pdc:       mapPDC(pdcRaw),
     };
+
+    console.log("Loaded:", result.suppliers.length, "suppliers,",
+      result.invoices.length, "invoices,",
+      result.payments.length, "payments,",
+      result.pdc.length, "PDC");
+
+    return result;
   } catch (err) {
     console.error("Failed to load Google Sheets:", err);
     document.getElementById("error-banner").classList.add("show");
